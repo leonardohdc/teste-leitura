@@ -7,6 +7,7 @@ import {
   countBlockingOnSide,
   countRowsBlockingExport,
 } from '../exportReadiness'
+import { useAllowedCategories } from '../hooks/useAllowedCategories'
 import type { SideBundle } from '../storage'
 import {
   clearExtratoSession,
@@ -22,6 +23,7 @@ type Side = 'credito' | 'debito'
 const EMPTY_ROWS: StatementRowDTO[] = []
 
 export default function UploadPage() {
+  const { categories } = useAllowedCategories()
   const [loadingCredit, setLoadingCredit] = useState(false)
   const [loadingDebit, setLoadingDebit] = useState(false)
   const [merging, setMerging] = useState(false)
@@ -132,9 +134,9 @@ export default function UploadPage() {
     r.needs_review || r.categoria === UNCATEGORIZED
 
   const overrides = loadOverrides()
-  const creditBlocking = countBlockingOnSide(creditRows, 'credito', overrides)
-  const debitBlocking = countBlockingOnSide(debitRows, 'debito', overrides)
-  const blockingTotal = countRowsBlockingExport(creditRows, debitRows, overrides)
+  const creditBlocking = countBlockingOnSide(creditRows, 'credito', overrides, categories)
+  const debitBlocking = countBlockingOnSide(debitRows, 'debito', overrides, categories)
+  const blockingTotal = countRowsBlockingExport(creditRows, debitRows, overrides, categories)
   const anyBlocking = blockingTotal > 0
 
   const creditSuggested =

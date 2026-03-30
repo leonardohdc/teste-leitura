@@ -6,9 +6,11 @@ from typing import List, Optional
 
 import pandas as pd
 
-from .categorize import UNCATEGORIZED, categorize_local, normalize_description
+from .categorize import UNCATEGORIZED, categorize_sqlite_only, normalize_description
 from .constants import ORIGEM_CREDITO, ORIGEM_DEBITO
+from .categories_registry import merged_allowed_categories
 from .llm_categorize import apply_llm_categories, batch_categorize_normalized
+from .rules import match_fallback_rule
 
 EXPECTED_ALIASES = {
     "data": "Data",
@@ -165,10 +167,13 @@ def rows_to_statement_rows(
 ) -> tuple[List[StatementRow], set[str]]:
     """
     origem_label: ORIGEM_CREDITO ou ORIGEM_DEBITO.
-    Pipeline: regras + SQLite, depois LLM em lote para ainda não classificados.
+    Pipeline: SQLite (mapeamentos do usuário) → LLM em lote → regras de fallback.
     """
     if origem_label not in (ORIGEM_CREDITO, ORIGEM_DEBITO):
         origem_label = ORIGEM_DEBITO
+
+    allowed_tuple = merged_allowed_categories(conn)
+    allowed_set = frozenset(allowed_tuple)
 
     out: List[StatementRow] = []
     norms_to_llm: list[str] = []
@@ -176,7 +181,7 @@ def rows_to_statement_rows(
 
     for d in rows:
         desc = str(d.get("Descrição", ""))
-        cat = categorize_local(conn, desc)
+        cat = categorize_sqlite_only(conn, desc, allowed_set)
         out.append(_row_dict_to_statement(d, cat, origem_label))
         if cat == UNCATEGORIZED and desc.strip():
             n = normalize_description(desc)
@@ -184,7 +189,7 @@ def rows_to_statement_rows(
                 seen_norm.add(n)
                 norms_to_llm.append(n)
 
-    llm_raw = batch_categorize_normalized(norms_to_llm)
+    llm_raw = batch_categorize_normalized(norms_to_llm, allowed_tuple)
     llm_applied = apply_llm_categories(llm_raw)
 
     for row in out:
@@ -197,6 +202,18 @@ def rows_to_statement_rows(
         row.categoria = cat
         row.llm_confidence = conf if conf > 0 else None
         row.needs_review = needs
+
+    for row in out:
+        if row.categoria != UNCATEGORIZED:
+            continue
+        n = row.normalized_description()
+        if not n:
+            continue
+        fixed = match_fallback_rule(n, allowed_set)
+        if fixed:
+            row.categoria = fixed
+            row.llm_confidence = None
+            row.needs_review = False
 
     pending = set()
     for row in out:

@@ -5,12 +5,22 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
-from .constants import ALLOWED_CATEGORIES, ALLOWED_CATEGORIES_SET
 from .categorize import UNCATEGORIZED, normalize_description
 
 logger = logging.getLogger(__name__)
+
+_PROMPT_FILE = Path(__file__).resolve().parent / "prompts" / "extrato_categorizacao.md"
+
+
+def _load_extrato_instruction_prompt() -> str:
+    try:
+        return _PROMPT_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        logger.warning("Não foi possível ler o prompt em %s", _PROMPT_FILE)
+        return ""
 
 
 def _confidence_min() -> float:
@@ -40,6 +50,7 @@ def _parse_items(payload: Any) -> list[dict[str, Any]]:
 def _validate_item(
     item: dict[str, Any],
     expected_norm: str,
+    allowed_set: frozenset[str],
 ) -> tuple[str | None, float]:
     """Retorna (categoria permitida ou None, confidence)."""
     nd = item.get("normalized_description")
@@ -57,13 +68,14 @@ def _validate_item(
     if not isinstance(cat, str):
         return None, confidence
     cat_stripped = cat.strip()
-    if cat_stripped not in ALLOWED_CATEGORIES_SET:
+    if cat_stripped not in allowed_set:
         return None, confidence
     return cat_stripped, confidence
 
 
 def batch_categorize_normalized(
     normalized_unique: list[str],
+    allowed_categories: tuple[str, ...],
 ) -> dict[str, tuple[str | None, float]]:
     """
     Para cada descrição normalizada única, retorna (categoria ou None, confidence).
@@ -72,11 +84,23 @@ def batch_categorize_normalized(
     if not normalized_unique:
         return {}
 
-    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    allowed_set = frozenset(allowed_categories)
+
+    raw_key = os.getenv("OPENAI_API_KEY")
+    api_key = (raw_key or "").strip()
+    model = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
+
+    if api_key:
+        logger.warning("LLM: OPENAI_API_KEY=%r OPENAI_MODEL=%s", api_key, model)
+    else:
+        logger.warning(
+            "LLM env: OPENAI_API_KEY vazia ou ausente (raw is None=%s); OPENAI_MODEL=%s",
+            raw_key is None,
+            model,
+        )
+
     if not api_key:
         return {}
-
-    model = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
 
     try:
         from openai import OpenAI
@@ -84,18 +108,35 @@ def batch_categorize_normalized(
         logger.warning("openai SDK não instalado; a ignorar LLM.")
         return {}
 
-    allowed_json = json.dumps(list(ALLOWED_CATEGORIES), ensure_ascii=False)
+    allowed_json = json.dumps(list(allowed_categories), ensure_ascii=False)
     lines_block = "\n".join(f"- {n}" for n in normalized_unique)
 
+    instruction_block = _load_extrato_instruction_prompt()
+    if not instruction_block:
+        instruction_block = (
+            "Classifique extratos (Brasil). Copie cada normalized_description igual à linha da lista; "
+            "interprete o nome após compra no debito/credito. Confidence alto para padrões óbvios."
+        )
+
     system = (
-        "Classifique descrições de movimentos bancários. "
-        "Responda APENAS com JSON válido, sem markdown. "
-        f'Formato: {{"items":[{{"normalized_description":"<exata>","category":"<uma das permitidas ou null>","confidence":0.0-1.0}}]}}. '
-        f"Categorias permitidas (exatas): {allowed_json}. "
-        "Se não tiver certeza, use category null e confidence baixa. "
-        "normalized_description na resposta deve coincidir exatamente com uma das entradas solicitadas."
+        f"{instruction_block}\n\n"
+        "---\n"
+        "Regras técnicas desta chamada:\n"
+        f"- Lista atual de categorias (única fonte para o campo `category`; inclui padrão + extras do usuário): {allowed_json}\n"
+        "- **`normalized_description`**: copie **a linha completa** tal como aparece na lista do usuário "
+        "(incluindo `compra no debito - ` se existir). Não envie só o nome do estabelecimento.\n"
+        "- Estacionamento, mercado, vet/pet, padaria/doces, Uber, shopping: quando as instruções acima "
+        "indicarem o tipo, atribua categoria com **confidence ≥ 0,85**.\n"
+        "- Use `category`: **null** só para texto inútil ou dúvida real sem padrão; não deixe em branco "
+        "linhas que seguem os exemplos do prompt.\n"
+        "- Responda APENAS com JSON válido, sem markdown.\n"
+        f'- Formato: {{"items":[{{"normalized_description":"<exata>","category":"<uma das permitidas ou null>","confidence":0.0-1.0}}]}}\n'
     )
-    user = f"Classifique cada uma destas descrições normalizadas (uma linha = uma entrada):\n{lines_block}"
+    user = (
+        "Classifique cada linha abaixo. Cada linha é o valor exato de `normalized_description` que deve "
+        "voltar no JSON para esse item.\n\n"
+        f"{lines_block}"
+    )
 
     client = OpenAI(api_key=api_key)
     try:
@@ -109,7 +150,7 @@ def batch_categorize_normalized(
             response_format={"type": "json_object"},
         )
     except Exception as e:
-        logger.warning("Pedido OpenAI falhou: %s", e)
+        logger.warning("Requisição OpenAI falhou: %s", e)
         return {}
 
     content = (completion.choices[0].message.content or "").strip()
@@ -131,7 +172,7 @@ def batch_categorize_normalized(
         key = normalize_description(nd)
         if key not in by_norm:
             continue
-        cat, conf = _validate_item(item, key)
+        cat, conf = _validate_item(item, key, allowed_set)
         by_norm[key] = (cat, conf)
 
     return by_norm

@@ -1,14 +1,16 @@
-/** Espelho das categorias permitidas no backend (strings exactas). */
-export const ALLOWED_CATEGORIES = [
-  'Jogos virtuais',
-  'padaria',
-  'mercado',
-  'transferências pessoais',
-  'livros',
+/** Categorias padrão (espelho do backend) até o GET /categories responder. */
+export const DEFAULT_ALLOWED_CATEGORIES = [
+  'carro/mecanico',
   'credito',
   'investimentos',
+  'Jogos virtuais',
+  'livros',
+  'mercado',
+  'outros',
+  'padaria',
+  'petshop/animais',
+  'posto de gasolina',
+  'transferências pessoais',
 ] as const
-
-export type AllowedCategory = (typeof ALLOWED_CATEGORIES)[number]
 
 export const UNCATEGORIZED = 'Não classificado'

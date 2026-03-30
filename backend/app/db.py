@@ -26,6 +26,30 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_categories (
+            name TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
+def list_user_category_names(conn: sqlite3.Connection) -> list[str]:
+    rows = conn.execute(
+        "SELECT name FROM user_categories ORDER BY name COLLATE NOCASE"
+    ).fetchall()
+    return [str(r["name"]) for r in rows]
+
+
+def add_user_category(conn: sqlite3.Connection, name: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "INSERT INTO user_categories (name, created_at) VALUES (?, ?)",
+        (name, now),
+    )
     conn.commit()
 
 

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { postMergedExport } from '../api'
-import { ALLOWED_CATEGORIES, UNCATEGORIZED } from '../constants'
+import { UNCATEGORIZED } from '../constants'
 import { countRowsBlockingExport } from '../exportReadiness'
+import { useAllowedCategories } from '../hooks/useAllowedCategories'
 import {
   loadCreditBundle,
   loadDebitBundle,
@@ -54,6 +55,10 @@ function buildReviewLines(): ReviewLine[] {
 }
 
 export default function ReviewPage() {
+  const { categories, loading: catsLoading, error: catsError, addCategory } = useAllowedCategories()
+  const [newCatName, setNewCatName] = useState('')
+  const [addingCat, setAddingCat] = useState(false)
+  const [addCatErr, setAddCatErr] = useState<string | null>(null)
   const [lines, setLines] = useState<ReviewLine[]>([])
   const [merging, setMerging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,10 +73,7 @@ export default function ReviewPage() {
     if (overrides[key]) return overrides[key]
     const line = lines.find((l) => l.key === key)
     if (!line) return ''
-    if (
-      line.categoriaAtual !== UNCATEGORIZED &&
-      (ALLOWED_CATEGORIES as readonly string[]).includes(line.categoriaAtual)
-    ) {
+    if (line.categoriaAtual !== UNCATEGORIZED && categories.includes(line.categoriaAtual)) {
       return line.categoriaAtual
     }
     return ''
@@ -92,6 +94,7 @@ export default function ReviewPage() {
     credit?.rows ?? [],
     debit?.rows ?? [],
     overridesForExport,
+    categories,
   )
   const isBusyReview = merging
   const canDownloadReview =
@@ -127,6 +130,22 @@ export default function ReviewPage() {
 
   const canMerge = !!credit?.rows?.length && !!debit?.rows?.length
 
+  async function onAddCategory(e: FormEvent) {
+    e.preventDefault()
+    const name = newCatName.trim()
+    if (!name) return
+    setAddCatErr(null)
+    setAddingCat(true)
+    try {
+      await addCategory(name)
+      setNewCatName('')
+    } catch (err) {
+      setAddCatErr(err instanceof Error ? err.message : 'Não foi possível adicionar')
+    } finally {
+      setAddingCat(false)
+    }
+  }
+
   const pendingCreditOnly =
     lines.length > 0 && lines.every((l) => l.origemLabel === 'credito')
   const pendingDebitOnly =
@@ -145,6 +164,46 @@ export default function ReviewPage() {
         <p className="msg ok">Nenhuma linha pendente de revisão nesta sessão.</p>
       )}
 
+      <section className="panel add-category-panel" style={{ marginBottom: '1.25rem' }}>
+        <h2 className="session-heading" style={{ fontSize: '1.1rem' }}>
+          Categorias permitidas
+        </h2>
+        <p className="muted" style={{ marginBottom: '0.75rem' }}>
+          A lista vem do servidor (padrão + as que você criar). Novas categorias entram na próxima
+          classificação por IA e nos selects abaixo.
+        </p>
+        {catsLoading && <p className="muted">Carregando categorias…</p>}
+        {catsError && (
+          <p className="msg error" role="alert">
+            {catsError}
+          </p>
+        )}
+        <form className="row add-category-form" onSubmit={onAddCategory}>
+          <input
+            type="text"
+            className="cat-input"
+            placeholder="Nome da nova categoria"
+            maxLength={64}
+            value={newCatName}
+            onChange={(e) => setNewCatName(e.target.value)}
+            aria-label="Nome da nova categoria"
+            disabled={addingCat || catsLoading}
+          />
+          <button
+            type="submit"
+            className="btn secondary"
+            disabled={addingCat || catsLoading || !newCatName.trim()}
+          >
+            {addingCat ? 'Salvando…' : 'Adicionar categoria'}
+          </button>
+        </form>
+        {addCatErr && (
+          <p className="msg error" role="alert" style={{ marginTop: '0.5rem' }}>
+            {addCatErr}
+          </p>
+        )}
+      </section>
+
       {lines.length > 0 && (
         <>
           {pendingCreditOnly && (
@@ -161,8 +220,8 @@ export default function ReviewPage() {
             </p>
           )}
           <p className="lead">
-            Escolha uma das {ALLOWED_CATEGORIES.length} categorias permitidas para cada linha. As
-            escolhas são enviadas como ajustes (overrides) no CSV compilado.
+            Escolha uma das {categories.length} categorias para cada linha. As escolhas são enviadas
+            como ajustes (overrides) no CSV compilado.
           </p>
           <ul className="pending-list">
             {lines.map((line) => (
@@ -180,7 +239,7 @@ export default function ReviewPage() {
                     onChange={(e) => onSelectChange(line.key, e.target.value)}
                   >
                     <option value="">— selecione —</option>
-                    {ALLOWED_CATEGORIES.map((c) => (
+                    {categories.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>

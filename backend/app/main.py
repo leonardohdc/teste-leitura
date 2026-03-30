@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,14 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .categorize import UNCATEGORIZED, normalize_description
+from .categories_registry import merged_allowed_categories
 from .constants import (
-    ALLOWED_CATEGORIES_SET,
     FORM_ORIGEM_CREDITO,
     FORM_ORIGEM_DEBITO,
     ORIGEM_CREDITO,
     ORIGEM_DEBITO,
 )
-from .db import get_connection, init_schema, list_mappings, upsert_mapping
+from .db import add_user_category, get_connection, init_schema, list_mappings, upsert_mapping
 from .ingest import (
     merged_statement_rows,
     parse_csv_bytes,
@@ -89,6 +90,10 @@ class MappingIn(BaseModel):
     category: str = Field(..., min_length=1)
 
 
+class CategoryAddIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
+
 class RowOut(BaseModel):
     data: str = ""
     valor: str = ""
@@ -150,6 +155,7 @@ def _apply_overrides_and_validate(
     credit: list[StatementRow],
     debit: list[StatementRow],
     overrides: dict[str, str],
+    allowed_set: frozenset[str],
 ) -> tuple[list[StatementRow], list[str]]:
     """Aplica overrides (chaves credito:i / debito:j). Retorna (merged, erros)."""
     errors: list[str] = []
@@ -160,7 +166,7 @@ def _apply_overrides_and_validate(
             if key not in overrides:
                 continue
             cat = overrides[key].strip()
-            if cat not in ALLOWED_CATEGORIES_SET:
+            if cat not in allowed_set:
                 errors.append(f"Override inválido em {key!r}: categoria não permitida.")
             else:
                 row.categoria = cat
@@ -175,7 +181,7 @@ def _apply_overrides_and_validate(
             errors.append(
                 f"Linha {idx + 1} ({row.origem}): ainda está como '{UNCATEGORIZED}'.",
             )
-        elif row.categoria not in ALLOWED_CATEGORIES_SET:
+        elif row.categoria not in allowed_set:
             errors.append(
                 f"Linha {idx + 1} ({row.origem}): categoria inválida {row.categoria!r}.",
             )
@@ -243,16 +249,56 @@ async def process_upload(
     )
 
 
+@app.get("/categories")
+def get_categories() -> dict:
+    conn = get_connection()
+    try:
+        cats = merged_allowed_categories(conn)
+    finally:
+        conn.close()
+    return {"categories": list(cats)}
+
+
+@app.post("/categories")
+def post_category(body: CategoryAddIn) -> dict:
+    name = " ".join(body.name.split()).strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Nome da categoria vazio.")
+    if len(name) > 64:
+        raise HTTPException(status_code=400, detail="Nome muito longo (máx. 64 caracteres).")
+    conn = get_connection()
+    try:
+        allowed = merged_allowed_categories(conn)
+        lower_new = name.lower()
+        if any(c.lower() == lower_new for c in allowed):
+            raise HTTPException(
+                status_code=400,
+                detail="Já existe uma categoria com esse nome (ignorando maiúsculas).",
+            )
+        try:
+            add_user_category(conn, name)
+        except sqlite3.IntegrityError:
+            raise HTTPException(
+                status_code=400,
+                detail="Categoria já existe.",
+            ) from None
+        cats = merged_allowed_categories(conn)
+    finally:
+        conn.close()
+    return {"ok": True, "categories": list(cats)}
+
+
 @app.post("/mappings")
 def post_mapping(body: MappingIn) -> dict:
     cat = body.category.strip()
-    if cat not in ALLOWED_CATEGORIES_SET:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Categoria não permitida. Use uma destas: {sorted(ALLOWED_CATEGORIES_SET)}.",
-        )
     conn = get_connection()
     try:
+        allowed_set = frozenset(merged_allowed_categories(conn))
+        if cat not in allowed_set:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Categoria não permitida. Use uma destas: {', '.join(sorted(allowed_set, key=str.lower))}.",
+            )
         key = normalize_description(body.description)
         if not key:
             raise HTTPException(status_code=400, detail="Descrição inválida.")
@@ -276,8 +322,14 @@ def export_merged(body: MergedExportIn) -> MergedExportOut:
     if not body.credit_rows and not body.debit_rows:
         raise HTTPException(status_code=400, detail="Não há linhas para exportar.")
 
+    conn = get_connection()
+    try:
+        allowed_set = frozenset(merged_allowed_categories(conn))
+    finally:
+        conn.close()
+
     for k, v in body.overrides.items():
-        if v.strip() not in ALLOWED_CATEGORIES_SET:
+        if v.strip() not in allowed_set:
             raise HTTPException(
                 status_code=400,
                 detail=f"Override {k!r}: categoria não permitida.",
@@ -286,7 +338,7 @@ def export_merged(body: MergedExportIn) -> MergedExportOut:
     credit = [_merged_row_in_to_statement(r) for r in body.credit_rows]
     debit = [_merged_row_in_to_statement(r) for r in body.debit_rows]
 
-    merged, errors = _apply_overrides_and_validate(credit, debit, body.overrides)
+    merged, errors = _apply_overrides_and_validate(credit, debit, body.overrides, allowed_set)
     if errors:
         raise HTTPException(status_code=400, detail={"pendencias": errors})
 

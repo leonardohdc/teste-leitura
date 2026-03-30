@@ -1,5 +1,3 @@
-import { ALLOWED_CATEGORIES } from './constants'
-
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export type StatementRowDTO = {
@@ -87,10 +85,25 @@ export async function postMergedExport(
   return res.json() as Promise<MergedExportResponse>
 }
 
+export async function getCategories(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/categories`)
+  if (!res.ok) throw new Error(await readError(res))
+  const j = (await res.json()) as { categories: string[] }
+  return j.categories ?? []
+}
+
+export async function postCategory(name: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error(await readError(res))
+  const j = (await res.json()) as { categories: string[] }
+  return j.categories ?? []
+}
+
 export async function postMapping(description: string, category: string): Promise<void> {
-  if (!(ALLOWED_CATEGORIES as readonly string[]).includes(category)) {
-    throw new Error('Categoria inválida para o servidor.')
-  }
   const res = await fetch(`${API_BASE}/mappings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

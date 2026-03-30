@@ -1,7 +1,5 @@
 import type { StatementRowDTO } from './api'
-import { ALLOWED_CATEGORIES, UNCATEGORIZED } from './constants'
-
-const ALLOWED = ALLOWED_CATEGORIES as readonly string[]
+import { UNCATEGORIZED } from './constants'
 
 export function effectiveCategory(
   row: StatementRowDTO,
@@ -18,23 +16,25 @@ export function rowBlocksExport(
   row: StatementRowDTO,
   key: string,
   overrides: Record<string, string>,
+  allowed: readonly string[],
 ): boolean {
   const cat = effectiveCategory(row, key, overrides)
   if (!cat || cat === UNCATEGORIZED) return true
-  return !ALLOWED.includes(cat)
+  return !allowed.includes(cat)
 }
 
 export function countRowsBlockingExport(
   creditRows: StatementRowDTO[],
   debitRows: StatementRowDTO[],
   overrides: Record<string, string>,
+  allowed: readonly string[],
 ): number {
   let n = 0
   creditRows.forEach((r, i) => {
-    if (rowBlocksExport(r, `credito:${i}`, overrides)) n += 1
+    if (rowBlocksExport(r, `credito:${i}`, overrides, allowed)) n += 1
   })
   debitRows.forEach((r, i) => {
-    if (rowBlocksExport(r, `debito:${i}`, overrides)) n += 1
+    if (rowBlocksExport(r, `debito:${i}`, overrides, allowed)) n += 1
   })
   return n
 }
@@ -43,10 +43,11 @@ export function countBlockingOnSide(
   rows: StatementRowDTO[],
   side: 'credito' | 'debito',
   overrides: Record<string, string>,
+  allowed: readonly string[],
 ): number {
   let n = 0
   rows.forEach((r, i) => {
-    if (rowBlocksExport(r, `${side}:${i}`, overrides)) n += 1
+    if (rowBlocksExport(r, `${side}:${i}`, overrides, allowed)) n += 1
   })
   return n
 }

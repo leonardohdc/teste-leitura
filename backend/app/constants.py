@@ -1,17 +1,19 @@
-"""Categorias permitidas (única fonte de verdade no backend)."""
+"""Categorias padrão (sempre disponíveis). Extras ficam em SQLite (`user_categories`)."""
 
-# Exatamente estas strings (capitalização conforme pedido para o CSV).
-ALLOWED_CATEGORIES: tuple[str, ...] = (
-    "Jogos virtuais",
-    "padaria",
-    "mercado",
-    "transferências pessoais",
-    "livros",
+# Strings exatas; ordem aqui não importa — a lista final é ordenada alfabeticamente ao servir.
+DEFAULT_ALLOWED_CATEGORIES: tuple[str, ...] = (
+    "carro/mecanico",
     "credito",
     "investimentos",
+    "Jogos virtuais",
+    "livros",
+    "mercado",
+    "outros",
+    "padaria",
+    "petshop/animais",
+    "posto de gasolina",
+    "transferências pessoais",
 )
-
-ALLOWED_CATEGORIES_SET = frozenset(ALLOWED_CATEGORIES)
 
 ORIGEM_CREDITO = "Crédito"
 ORIGEM_DEBITO = "Débito"
