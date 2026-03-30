@@ -3,8 +3,13 @@
   "private": true,
   "scripts": {
     "build": "npm --prefix frontend run build",
-    "dev": "npm --prefix frontend run dev",
+    "dev": "concurrently -k -n api,front -c magenta,cyan \"npm run dev:api\" \"npm run dev:front\"",
+    "dev:front": "npm --prefix frontend run dev",
+    "dev:api": "node scripts/run-api-dev.mjs",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

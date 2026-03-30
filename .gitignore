@@ -16,8 +16,8 @@ backend/.env
 # SQLite (dados locais)
 backend/data/*.db
 
-# Node / frontend
-frontend/node_modules/
+# Node (raiz + frontend)
+node_modules/
 frontend/dist/
 frontend/.env.local
 
