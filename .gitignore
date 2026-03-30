@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+backend/**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Secrets & local env
+backend/.env
+.env.local
+
+# SQLite (dados locais)
+backend/data/*.db
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
