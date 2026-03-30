@@ -23,7 +23,12 @@ Você recebe **descrições já normalizadas**: minúsculas, **sem acentos**, es
 | `mercado ` no nome, `superdia`, `atacado`, nomes de rede tipo `taruma` (supermercado) | `mercado` |
 | `vet`, `veter`, `hospital` + contexto animal, `rei dos animais`, `aupetmia`, `pet` no nome | `petshop/animais` |
 | `farma` ligada à mesma rede que clínica vet (ex.: `nivo farma` com `hospital vet nivo` no extrato) | `petshop/animais` |
-| `cafe`, padaria típica, `doces`, `familia` + nome de padaria/lanchonete | `padaria` |
+| `cafe`, `cafes`, padaria típica, `doces`, `familia` + nome de padaria/lanchonete; nomes tipo “cheirin bao”, “sousas cafes comercio” | `padaria` |
+| `acai`, `açaí` (normalizado: `acai`), `finosabor`, `fino sabor`, `ton fino`, `pag*` + nome de loja de açaí | `Acai` |
+| Chocolates finos, `cacau show`, `kopenhagen`, `bubblekill`, loja de doces/chocolate (não padaria de pão) | `Guloseimas` |
+| `restau`, `restaur`, fast-casual tipo `chipotle`, refeição em restaurante | `Restaurante` |
+| `distribuidora` (ex.: MN distribuidora), atacado de alimentos/bebidas no nome | `mercado` |
+| `master gula` e nomes parecidos de mercado/atacado de doces em escala de mercado | `mercado` |
 | `uber`, corrida app (`*trip`, `help.u`) | `outros` |
 | Cinema, streaming de bilhete, locação genérica | `outros` |
 
@@ -46,6 +51,17 @@ Use estas correspondências quando a linha da lista **coincidir** (ou for igual 
 | `compra no debito - jim.com* divino doces` | `padaria` |
 | `compra no debito - rei dos animais` | `petshop/animais` |
 | `compra no debito - superdia taruma` | `mercado` |
+| `pag*finosaboracai` (com ou sem prefixo `compra no debito`) | `Acai` |
+| `mn distribuidora de b` | `mercado` |
+| `compra no debito - cacau show sh jockey` | `Guloseimas` |
+| `compra no debito - bubblekill` | `Guloseimas` |
+| `compra no debito - pg *ton fino sabor a` | `Acai` |
+| `compra no debito - cheirin bao` | `padaria` |
+| `compra no debito - chipotle jockey restau` | `Restaurante` |
+| `compra no debito - master gula` | `mercado` |
+| `compra no debito - pag*finosaboracai` | `Acai` |
+| `compra no debito - sousas cafes comercio` | `padaria` |
+| `compra no debito - kopenhagen` | `Guloseimas` |
 
 Outros exemplos úteis:
 
@@ -67,7 +83,7 @@ Use **`category`: `null`** só quando:
 
 ## Lista de categorias válidas
 
-**Não há lista fixa neste ficheiro.** As categorias em que pode classificar são **só** as que aparecem no **array JSON** nas “Regras técnicas” da mesma mensagem do sistema (inclui categorias padrão e **quaisquer categorias extra** criadas pelo usuário na aplicação). O valor de `category` tem de ser **uma dessas strings, caractere a caractere** (maiúsculas/minúsculas incluídas).
+**Não há lista fixa neste arquivo.** As categorias em que pode classificar são **só** as que aparecem no **array JSON** nas “Regras técnicas” da mesma mensagem do sistema (inclui categorias padrão e **quaisquer categorias extra** criadas pelo usuário na aplicação). O valor de `category` tem de ser **uma dessas strings, caractere a caractere** (maiúsculas/minúsculas incluídas — ex.: `Acai`, `Guloseimas`, `Restaurante`).
 
 Para categorias novas que não estão nos exemplos abaixo, use a mesma lógica: encaixe pelo **significado** do estabelecimento e escolha a etiqueta da lista JSON que melhor descreve o gasto.
 

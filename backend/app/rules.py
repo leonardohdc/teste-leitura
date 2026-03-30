@@ -36,6 +36,17 @@ FALLBACK_RULES: list[tuple[str, Rule]] = [
     ("petshop/animais", ("pet shop", _contains("pet shop"))),
     ("petshop/animais", ("petshop", _contains("petshop"))),
     ("petshop/animais", ("pet saud", _contains("pet saud"))),
+    # Acai
+    ("Acai", ("finosabor", _contains("finosabor"))),
+    ("Acai", ("fino sabor", _contains("fino sabor"))),
+    ("Acai", ("acai", _contains("acai"))),
+    # Guloseimas
+    ("Guloseimas", ("cacau show", _contains("cacau show"))),
+    ("Guloseimas", ("kopenhagen", _contains("kopenhagen"))),
+    ("Guloseimas", ("bubblekill", _contains("bubblekill"))),
+    # Restaurante
+    ("Restaurante", ("chipotle", _contains("chipotle"))),
+    ("Restaurante", ("restau", _contains("restau"))),
     # carro / mecânico
     ("carro/mecanico", ("oficina", _contains("oficina"))),
     ("carro/mecanico", ("mecanica", _contains("mecanica"))),
@@ -46,6 +57,8 @@ FALLBACK_RULES: list[tuple[str, Rule]] = [
     ("carro/mecanico", ("pneu", _contains("pneu"))),
     ("carro/mecanico", ("borracharia", _contains("borracharia"))),
     # mercado
+    ("mercado", ("master gula", _contains("master gula"))),
+    ("mercado", ("distribuidora", _contains("distribuidora"))),
     ("mercado", ("ifood", _contains("ifood"))),
     ("mercado", ("supermercado", _contains("supermercado"))),
     ("mercado", ("atacad", _contains("atacad"))),

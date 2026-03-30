@@ -1,7 +1,9 @@
 /** Categorias padrão (espelho do backend) até o GET /categories responder. */
 export const DEFAULT_ALLOWED_CATEGORIES = [
+  'Acai',
   'carro/mecanico',
   'credito',
+  'Guloseimas',
   'investimentos',
   'Jogos virtuais',
   'livros',
@@ -10,6 +12,7 @@ export const DEFAULT_ALLOWED_CATEGORIES = [
   'padaria',
   'petshop/animais',
   'posto de gasolina',
+  'Restaurante',
   'transferências pessoais',
 ] as const
 

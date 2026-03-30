@@ -2,8 +2,10 @@
 
 # Strings exatas; ordem aqui não importa — a lista final é ordenada alfabeticamente ao servir.
 DEFAULT_ALLOWED_CATEGORIES: tuple[str, ...] = (
+    "Acai",
     "carro/mecanico",
     "credito",
+    "Guloseimas",
     "investimentos",
     "Jogos virtuais",
     "livros",
@@ -12,6 +14,7 @@ DEFAULT_ALLOWED_CATEGORIES: tuple[str, ...] = (
     "padaria",
     "petshop/animais",
     "posto de gasolina",
+    "Restaurante",
     "transferências pessoais",
 )
 
